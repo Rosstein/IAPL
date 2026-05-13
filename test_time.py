@@ -1,6 +1,7 @@
 import argparse
 
 import time
+from contextlib import nullcontext
 import torch.distributed as dist
 from copy import deepcopy
 import pdb
@@ -28,6 +29,8 @@ from scipy.ndimage import filters
 
 @torch.no_grad()
 def gather_together(data):
+    if not dist.is_available() or not dist.is_initialized():
+        return data
     world_size = dist.get_world_size()
     if world_size < 2:
         return data
@@ -65,18 +68,20 @@ def testtime_main(args):
     model = model.to(device)
     if args.distributed:
         model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu], find_unused_parameters=False)
+    model_to_use = model.module if args.distributed else model
     checkpoint = torch.load(args.pretrained_model, map_location='cpu')
-    model.module.load_state_dict(checkpoint['model'])
+    model_to_use.load_state_dict(checkpoint['model'])
 
     pretrained_ctx = torch.load(args.pretrained_model, map_location='cpu')['model']['prompt_learner.ctx']
 
-    model.module.freeze_tta()
+    model_to_use.freeze_tta()
     
-    print([{"params": [n for n, p in model.module.named_parameters() if p.requires_grad]}])
+    print([{"params": [n for n, p in model_to_use.named_parameters() if p.requires_grad]}])
 
-    optimizer = torch.optim.AdamW([{"params": [p for n, p in model.module.named_parameters() if p.requires_grad]}], args.lr)
+    optimizer = torch.optim.AdamW([{"params": [p for n, p in model_to_use.named_parameters() if p.requires_grad]}], args.lr)
     optim_state = deepcopy(optimizer.state_dict())
     scaler = None
+    amp_dtype = torch.bfloat16 if torch.cuda.is_available() and torch.cuda.is_bf16_supported() else torch.float16
 
     # test for every sub-dataset
     test_dataset = []
@@ -103,17 +108,17 @@ def testtime_main(args):
             
             # for every new image reset it params and optimizer.
             with torch.no_grad():
-                model.module.prompt_learner.ctx.copy_(pretrained_ctx)
+                model_to_use.prompt_learner.ctx.copy_(pretrained_ctx)
                 
             optimizer.load_state_dict(optim_state)
 
             # tta 
-            with torch.amp.autocast(device_type="cuda", dtype=torch.bfloat16):
+            with torch.amp.autocast(device_type="cuda", dtype=amp_dtype):
                 model.train()
                 select_index = test_time_tuning(model, images, optimizer, scaler, args)
 
             # infer
-            with torch.amp.autocast(device_type="cuda", dtype=torch.bfloat16):
+            with torch.amp.autocast(device_type="cuda", dtype=amp_dtype):
                 with torch.no_grad():
                     model.eval()
                     if args.ois:
@@ -128,7 +133,7 @@ def testtime_main(args):
             y_pred.extend(pred.flatten().tolist())
             y_true.extend(labels.flatten().tolist())
 
-        world_size = dist.get_world_size()
+        world_size = dist.get_world_size() if dist.is_available() and dist.is_initialized() else 1
         if world_size < 2:
             merge_y_true = y_true
         else:
@@ -171,7 +176,8 @@ def test_time_tuning(model, inputs, optimizer, scaler, args):
     
     for j in range(args.tta_steps):
 
-        with model.no_sync():  # 多卡时梯度不进行聚合，各卡独立进行参数更新
+        no_sync_ctx = model.no_sync() if hasattr(model, "no_sync") else nullcontext()
+        with no_sync_ctx:  # 多卡时梯度不进行聚合，各卡独立进行参数更新
             
             output, _, _ = model(inputs) 
             loss, index = binary_entropy(output.squeeze(), args.selection_p, args.ois)
