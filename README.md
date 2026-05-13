@@ -110,11 +110,10 @@ We release the pre-trained models on [ModelScope](https://modelscope.cn/models/y
 
 We sincerely thank the following repos: [UniversalFakeDetect](https://github.com/WisconsinAIVision/UniversalFakeDetect), [FatFormer](https://github.com/Michel-liu/FatFormer), [AIDE](https://github.com/shilinyan99/AIDE) and [TPT](https://github.com/azshue/TPT).
 
-## Citation
-```
-@article{li2025towards,
-  title={Towards Generalizable AI-Generated Image Detection via Image-Adaptive Prompt Learning},
-  author={Li, Yiheng and Tan, Zichang and Xu, Guoqing and Lei, Zhen and Zhou, Xu and Yang, Yang},
-  journal={arXiv preprint arXiv:2508.01603},
-  year={2025}}
-```
+
+
+## 🚀 Modifications & Fixes (for Single-GPU / V100)
+- **Distributed Training Bypass**: Added single-GPU fallback path to prevent NCCL/barrier crashes, removing uninitialized distributed APIs, `no_sync()`, and `.module` wrappers in `test_time.py`.
+- **V100 Precision Compatibility**: Added automatic fallback from `bf16` to `fp16` in `test_time.py` (since V100 Volta architecture does not support bfloat16 natively).
+- **Dynamic Weight Paths**: Fixed CLIP weight loading to strictly follow `args.clip_path` dynamically in `clip_models.py`.
+- **Dataset Pathing**: Standardized GenImage dataset paths to `Datasets/GenImage` in `tta_genimage.sh`.
