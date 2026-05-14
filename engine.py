@@ -62,8 +62,10 @@ def train_one_epoch(model: torch.nn.Module, data_loader: Iterable,
 
 @torch.no_grad()
 def gather_together(data):
-    world_size = dist.get_world_size()
+    world_size = utils.get_world_size()
     if world_size < 2:
+        return data
+    if not utils.is_dist_avail_and_initialized():
         return data
     dist.barrier()
     gather_data = [None for _ in range(world_size)]
@@ -105,7 +107,7 @@ def evaluate(model, data_loaders, device, args=None, test=False):
             y_true.extend(labels.flatten().tolist())
         
         
-        world_size = dist.get_world_size()
+        world_size = utils.get_world_size()
         
         if world_size < 2:
             merge_y_true = y_true

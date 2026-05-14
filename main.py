@@ -142,23 +142,22 @@ def main(args):
     model = build_model(args)
     model = model.to(device)
     model_without_ddp = model
+    model_ema = None
     if args.distributed:
         model = torch.nn.parallel.DistributedDataParallel(model, device_ids=[args.gpu], find_unused_parameters=False)
         model_without_ddp = model.module
-        if args.ema:
-            model_ema = ModelEmaV2(model.module, decay=0.9999)  # 注意传入的是 model.module
-            print('-----------use EMA train mode----------')
-        else:
-            model_ema = None
+    if args.ema:
+        model_ema = ModelEmaV2(model_without_ddp, decay=0.9999)
+        print('-----------use EMA train mode----------')
     
     if args.eval:
         checkpoint = torch.load(args.pretrained_model, map_location='cpu')
         model_without_ddp.load_state_dict(checkpoint['model'])
 
-        if args.ema and ('model_ema' in checkpoint.keys()):
+        if args.ema and model_ema and ('model_ema' in checkpoint.keys()):
             model_ema.module.load_state_dict(checkpoint['model_ema'])
 
-        if args.ema and ('model_ema' in checkpoint.keys()):
+        if args.ema and model_ema and ('model_ema' in checkpoint.keys()):
             evaluate(model_ema.module, data_loader_vals, device, args=args)
         else:
             evaluate(model, data_loader_vals, device, args=args)
