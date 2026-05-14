@@ -19,10 +19,10 @@ class Dataset_Creator:
         self.num_workers = num_workers
 
         self.all_dataset = {
-            "train": ['car' 'cat' 'chair' 'horse'] + ['SDv14'],
-            "val": ['car' 'cat' 'chair' 'horse'] + ['SDv14'],
-            "test": ['crn', 'cyclegan', 'dalle', 'biggan', 'deepfake', 'gaugan', 'glide_50_27', 'glide_100_10', 'glide_100_27', 'guided', 'imle', 'ldm_100', 'ldm_200', 'ldm_200_cfg', 'progan', 'san', 'seeingdark', 'stargan', 'stylegan'] + ['ADM', 'BigGAN', 'glide', 'Midjourney', 'stable_diffusion_v_1_4', 'stable_diffusion_v_1_5', 'VQDM', 'wukong'] + ['Chameleon'],
-            "tta": ['crn', 'cyclegan', 'dalle', 'biggan', 'deepfake', 'gaugan', 'glide_50_27', 'glide_100_10', 'glide_100_27', 'guided', 'imle', 'ldm_100', 'ldm_200', 'ldm_200_cfg', 'progan', 'san', 'seeingdark', 'stargan', 'stylegan'] + ['ADM', 'BigGAN', 'glide', 'Midjourney', 'stable_diffusion_v_1_4', 'stable_diffusion_v_1_5', 'VQDM', 'wukong'] + ['Chameleon'],
+            "train": ['OULU_NPU'],
+            "val": ['OULU_NPU'],
+            "test": ['MSU_MFSD', 'CASIA_FASD', 'ReplayAttack'],
+            "tta": ['MSU_MFSD', 'CASIA_FASD', 'ReplayAttack'],
         }
 
         base_transform = transforms.Compose([
@@ -122,17 +122,17 @@ def translate_duplicate(img, cropSize):
     else:
         return img
     
-class Dataset_Creator_GenImage:
+class Dataset_Creator_FasImage:
     def __init__(self, dataset_path, batch_size, num_workers=0, img_resolution=256, crop_resolution=224):
         self.dataset_path = dataset_path
         self.batch_size = batch_size
         self.num_workers = num_workers
 
         self.all_dataset = {
-            "train": ['car' 'cat' 'chair' 'horse'] + ['SDv14'],
-            "val": ['car' 'cat' 'chair' 'horse'] + ['SDv14'],
-            "test": ['crn', 'cyclegan', 'dalle', 'biggan', 'deepfake', 'gaugan', 'glide_50_27', 'glide_100_10', 'glide_100_27', 'guided', 'imle', 'ldm_100', 'ldm_200', 'ldm_200_cfg', 'progan', 'san', 'seeingdark', 'stargan', 'stylegan'] + ['ADM', 'BigGAN', 'glide', 'Midjourney', 'stable_diffusion_v_1_4', 'stable_diffusion_v_1_5', 'VQDM', 'wukong'] + ['Chameleon'],
-            "tta": ['crn', 'cyclegan', 'dalle', 'biggan', 'deepfake', 'gaugan', 'glide_50_27', 'glide_100_10', 'glide_100_27', 'guided', 'imle', 'ldm_100', 'ldm_200', 'ldm_200_cfg', 'progan', 'san', 'seeingdark', 'stargan', 'stylegan'] + ['ADM', 'BigGAN', 'glide', 'Midjourney', 'stable_diffusion_v_1_4', 'stable_diffusion_v_1_5', 'VQDM', 'wukong'] + ['Chameleon'],
+            "train": ['OULU_NPU'],
+            "val": ['OULU_NPU'],
+            "test": ['MSU_MFSD', 'CASIA_FASD', 'ReplayAttack'],
+            "tta": ['MSU_MFSD', 'CASIA_FASD', 'ReplayAttack'],
         }
 
         base_transform = transforms.Compose([

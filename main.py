@@ -8,7 +8,7 @@ import numpy as np
 import argparse
 from pathlib import Path
 from utils.misc import get_rank, init_distributed_mode, save_on_master, is_main_process
-from utils.dataset import Dataset_Creator, Dataset_Creator_GenImage, Dataset_Creator_Chameleon, Dataset_Creator_Chameleon_SD
+from utils.dataset import Dataset_Creator, Dataset_Creator_FasImage, Dataset_Creator_Chameleon, Dataset_Creator_Chameleon_SD
 from torch.utils.data import DataLoader, DistributedSampler, RandomSampler, SequentialSampler
 from torch.optim.lr_scheduler import OneCycleLR
 from engine import train_one_epoch, evaluate
@@ -122,7 +122,9 @@ def main(args):
     if args.dataset == 'UniversalFakeDetect':
         dataset_creator = Dataset_Creator(dataset_path=args.dataset_path, batch_size=args.evalbatchsize, num_workers=args.num_workers, img_resolution=args.img_resolution, crop_resolution=args.crop_resolution)
     elif args.dataset == 'GenImage':
-        dataset_creator = Dataset_Creator_GenImage(dataset_path=args.dataset_path, batch_size=args.evalbatchsize, num_workers=args.num_workers, img_resolution=args.img_resolution, crop_resolution=args.crop_resolution)               
+        dataset_creator = Dataset_Creator_FasImage(dataset_path=args.dataset_path, batch_size=args.evalbatchsize, num_workers=args.num_workers, img_resolution=args.img_resolution, crop_resolution=args.crop_resolution)               
+    elif args.dataset == 'FasImage':
+        dataset_creator = Dataset_Creator_FasImage(dataset_path=args.dataset_path, batch_size=args.evalbatchsize, num_workers=args.num_workers, img_resolution=args.img_resolution, crop_resolution=args.crop_resolution)
     elif args.dataset == 'Chameleon':
         dataset_creator = Dataset_Creator_Chameleon(dataset_path=args.dataset_path, batch_size=args.evalbatchsize, num_workers=args.num_workers, img_resolution=args.img_resolution, crop_resolution=args.crop_resolution)
     elif args.dataset == 'Chameleon_SD':
