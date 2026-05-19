@@ -5,8 +5,9 @@ import torch
 import utils.misc as utils
 import numpy as np
 import torch.distributed as dist
-from sklearn.metrics import average_precision_score, accuracy_score, roc_auc_score
+from sklearn.metrics import average_precision_score, accuracy_score, roc_auc_score, roc_curve
 import os
+
 def train_one_epoch(model: torch.nn.Module, data_loader: Iterable, 
                     optimizer: torch.optim.Optimizer, device: torch.device, 
                     epoch: int, lr_scheduler = None, max_norm: float = 0, args=None, model_ema=None):
@@ -92,6 +93,7 @@ def evaluate(model, data_loaders, device, args=None, test=False):
     test_fake_ACC = []
     test_auc = []
     test_hter = []
+    test_eer_thr = []
 
     for data_name, data_loader in data_loaders.items():
         metric_logger = utils.MetricLogger(delimiter="  ")
@@ -127,18 +129,37 @@ def evaluate(model, data_loaders, device, args=None, test=False):
         
         y_true, y_pred = np.array(merge_y_true), np.array(merge_y_pred)
 
-        r_acc = accuracy_score(y_true[y_true==0], y_pred[y_true==0] > 0.5)
-        f_acc = accuracy_score(y_true[y_true==1], y_pred[y_true==1] > 0.5)
-        acc = accuracy_score(y_true, y_pred > 0.5)
-        ap = average_precision_score(y_true, y_pred)
+        # r_acc = accuracy_score(y_true[y_true==0], y_pred[y_true==0] > 0.5)
+        # f_acc = accuracy_score(y_true[y_true==1], y_pred[y_true==1] > 0.5)
+        # acc = accuracy_score(y_true, y_pred > 0.5)
+        # ap = average_precision_score(y_true, y_pred)
 
         # Add auc and hter, modified by shaoshi 
-        auc = roc_auc_score(y_true, y_pred)
-        thr = 0.5
+        # auc = roc_auc_score(y_true, y_pred)
+        # thr = 0.5
         # label=1 -> fake, label=0 -> live
         # FAR: fake accepted as live; FRR: live rejected as fake
-        far = np.mean(y_pred[y_true == 1] < thr)
-        frr = np.mean(y_pred[y_true == 0] >= thr)
+        # far = np.mean(y_pred[y_true == 1] < thr)
+        # frr = np.mean(y_pred[y_true == 0] >= thr)
+        # hter = (far + frr) / 2
+
+        # === EER threshold ===
+        fpr, tpr, thresholds = roc_curve(y_true, y_pred)
+        fnr = 1 - tpr
+        eer_idx = np.nanargmin(np.abs(fpr - fnr))
+        eer_thr = thresholds[eer_idx]
+        eer = (fpr[eer_idx] + fnr[eer_idx]) / 2
+
+        r_acc = accuracy_score(y_true[y_true==0], y_pred[y_true==0] > eer_thr)
+        f_acc = accuracy_score(y_true[y_true==1], y_pred[y_true==1] > eer_thr)
+        acc = accuracy_score(y_true, y_pred > eer_thr)
+        ap = average_precision_score(y_true, y_pred)
+
+        auc = roc_auc_score(y_true, y_pred)
+        # label=1 -> fake, label=0 -> live
+        # FAR: fake accepted as live; FRR: live rejected as fake
+        far = np.mean(y_pred[y_true == 1] < eer_thr)
+        frr = np.mean(y_pred[y_true == 0] >= eer_thr)
         hter = (far + frr) / 2
 
         test_dataset.append(data_name)
@@ -148,20 +169,24 @@ def evaluate(model, data_loaders, device, args=None, test=False):
         test_fake_ACC.append(f_acc)
         test_auc.append(auc)
         test_hter.append(hter)
+        test_eer_thr.append(eer_thr)
 
-        print("({}) acc: {:.2f}; auc: {:.2f}; hter: {:.2f};".format(data_name, acc * 100, auc * 100, hter * 100))
+        # print("({}) acc: {:.2f}; auc: {:.2f}; hter: {:.2f};".format(data_name, acc * 100, auc * 100, hter * 100))
+        print("({}) acc: {:.2f}; auc: {:.2f}; hter: {:.2f}; eer_thr: {:.4f};".format(
+            data_name, acc * 100, auc * 100, hter * 100, eer_thr))
 
     output_strs = []
-    for idx, [name, acc, auc, hter] in enumerate(
+    for idx, [name, acc, auc, hter, eer_thr] in enumerate(
         zip(
             test_dataset + ["mean"],
             test_ACC + [np.mean(test_ACC)],
             test_auc + [np.mean(test_auc)],
             test_hter + [np.mean(test_hter)],
+            test_eer_thr + [np.mean(test_eer_thr)],
         )
     ):
-        output_str = "({} {:10}) acc: {:.2f}; auc: {:.2f}; hter: {:.2f};".format(
-            idx, name, acc * 100, auc * 100, hter * 100
+        output_str = "({} {:10}) acc: {:.2f}; auc: {:.2f}; hter: {:.2f}; eer_thr: {:.4f};".format(
+            idx, name, acc * 100, auc * 100, hter * 100, eer_thr
         )
         output_strs.append(output_str)
         print(output_str)
