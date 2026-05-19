@@ -240,9 +240,11 @@ def main(args):
         print('Epoch training time {}'.format(epoch_time_str))
         
         if args.ema:
-            output_strs, cur_ap, cur_acc, cur_auc, cur_hter = evaluate(model_ema.module, data_loader_vals, device, args=args)
+            # output_strs, cur_ap, cur_acc, cur_auc, cur_hter = evaluate(model_ema.module, data_loader_vals, device, args=args)
+            output_strs, cur_ap, cur_acc, cur_auc, cur_hter, cur_global_eer_thr = evaluate(model_ema.module, data_loader_vals, device, args=args)
         else:
-            output_strs, cur_ap, cur_acc, cur_auc, cur_hter = evaluate(model, data_loader_vals, device, args=args)
+            # output_strs, cur_ap, cur_acc, cur_auc, cur_hter = evaluate(model, data_loader_vals, device, args=args)
+            output_strs, cur_ap, cur_acc, cur_auc, cur_hter, cur_global_eer_thr = evaluate(model, data_loader_vals, device, args=args)
 
 
         if args.output_dir and is_main_process():
@@ -258,6 +260,8 @@ def main(args):
                     'epoch': epoch,
                     'lr_scheduler': lr_scheduler.state_dict(),
                     'args': args,
+                    # 'eer_thr': cur_global_eer_thr,
+                    'eer_thr': cur_global_eer_thr,
                 }
                 if model_ema:
                     weights['model_ema'] = get_state_dict(model_ema)
@@ -272,6 +276,8 @@ def main(args):
                     'epoch': epoch,
                     'lr_scheduler': lr_scheduler.state_dict(),
                     'args': args,
+                    # 'eer_thr': cur_global_eer_thr,
+                    'eer_thr': cur_global_eer_thr,
                 }
                 if model_ema:
                     weights['model_ema'] = get_state_dict(model_ema)
@@ -286,6 +292,8 @@ def main(args):
                     'epoch': epoch,
                     'lr_scheduler': lr_scheduler.state_dict(),
                     'args': args,
+                    # 'eer_thr': cur_global_eer_thr,
+                    'eer_thr': cur_global_eer_thr,
                 }
                 if model_ema:
                     weights['model_ema'] = get_state_dict(model_ema)
@@ -300,6 +308,8 @@ def main(args):
                     'epoch': epoch,
                     'lr_scheduler': lr_scheduler.state_dict(),
                     'args': args,
+                    # 'eer_thr': cur_global_eer_thr,
+                    'eer_thr': cur_global_eer_thr,
                 }
                 if model_ema:
                     weights['model_ema'] = get_state_dict(model_ema)
