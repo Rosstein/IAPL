@@ -47,7 +47,7 @@ def testtime_main(args):
     if args.dataset == 'UniversalFakeDetect':
         dataset_creator = Dataset_Creator(dataset_path=args.dataset_path, batch_size=args.evalbatchsize, num_workers=args.num_workers, img_resolution=args.img_resolution, crop_resolution=args.crop_resolution)
     elif args.dataset == 'FasImage':
-        dataset_creator = Dataset_Creator_FasImage(dataset_path=args.dataset_path, batch_size=args.evalbatchsize, num_workers=args.num_workers, img_resolution=args.img_resolution, crop_resolution=args.crop_resolution)               
+        dataset_creator = Dataset_Creator_FasImage(dataset_path=args.dataset_path, batch_size=args.evalbatchsize, num_workers=args.num_workers, img_resolution=args.img_resolution, crop_resolution=args.crop_resolution)
     elif args.dataset == 'Chameleon':
         dataset_creator = Dataset_Creator_Chameleon(dataset_path=args.dataset_path, batch_size=args.evalbatchsize, num_workers=args.num_workers, img_resolution=args.img_resolution, crop_resolution=args.crop_resolution)
     elif args.dataset == 'Chameleon_SD':
@@ -73,6 +73,10 @@ def testtime_main(args):
     model_to_use.load_state_dict(checkpoint['model'])
 
     pretrained_ctx = torch.load(args.pretrained_model, map_location='cpu')['model']['prompt_learner.ctx']
+    # thr = 0.5
+    # if isinstance(checkpoint, dict) and 'eer_thr' in checkpoint:
+    #     thr = checkpoint['eer_thr']
+    thr = checkpoint['eer_thr'] if isinstance(checkpoint, dict) and 'eer_thr' in checkpoint else 0.5
 
     model_to_use.freeze_tta()
     
@@ -151,13 +155,13 @@ def testtime_main(args):
                 merge_y_pred.extend(data)
 
         y_true, y_pred = np.array(merge_y_true), np.array(merge_y_pred)
-        r_acc = accuracy_score(y_true[y_true==0], y_pred[y_true==0] > 0.5)
-        f_acc = accuracy_score(y_true[y_true==1], y_pred[y_true==1] > 0.5)
-        acc = accuracy_score(y_true, y_pred > 0.5)
+        r_acc = accuracy_score(y_true[y_true==0], y_pred[y_true==0] > thr)
+        f_acc = accuracy_score(y_true[y_true==1], y_pred[y_true==1] > thr)
+        acc = accuracy_score(y_true, y_pred > thr)
         ap = average_precision_score(y_true, y_pred)
         
         auc = roc_auc_score(y_true, y_pred)
-        thr = 0.5
+        # thr = 0.5
         # label=1 -> fake, label=0 -> live
         # FAR: fake accepted as live; FRR: live rejected as fake
         far = np.mean(y_pred[y_true == 1] < thr)
@@ -172,7 +176,8 @@ def testtime_main(args):
         test_auc.append(auc)
         test_hter.append(hter)
 
-        print("({}) acc: {:.2f}; auc: {:.2f}; hter: {:.2f};".format(data_name, acc * 100, auc * 100, hter * 100))
+        # print("({}) acc: {:.2f}; auc: {:.2f}; hter: {:.2f};".format(data_name, acc * 100, auc * 100, hter * 100))
+        print("({}) acc: {:.2f}; auc: {:.2f}; hter: {:.2f}; thr: {:.4f};".format(data_name, acc * 100, auc * 100, hter * 100, thr))
 
     output_strs = []
     for idx, [name, acc, auc, hter] in enumerate(
