@@ -31,7 +31,7 @@ def get_args_parser():
     parser.add_argument('--crop_resolution', type=int, default=224)
     parser.add_argument('--train_selected_subsets', nargs='+', required=True)
     parser.add_argument('--test_selected_subsets', nargs='+', required=True)
-    parser.add_argument('--dataset', type=str, default='UniversalFakeDetect')
+    parser.add_argument('--dataset', type=str, default='FasImage')
 
 
     # training parameters
@@ -118,11 +118,9 @@ def main(args):
         exit()
 
     # infer dataset
-    assert args.dataset in ['UniversalFakeDetect', 'GenImage', 'Chameleon', 'Chameleon_SD']
+    assert args.dataset in ['UniversalFakeDetect', 'FasImage', 'Chameleon', 'Chameleon_SD']
     if args.dataset == 'UniversalFakeDetect':
         dataset_creator = Dataset_Creator(dataset_path=args.dataset_path, batch_size=args.evalbatchsize, num_workers=args.num_workers, img_resolution=args.img_resolution, crop_resolution=args.crop_resolution)
-    elif args.dataset == 'GenImage':
-        dataset_creator = Dataset_Creator_FasImage(dataset_path=args.dataset_path, batch_size=args.evalbatchsize, num_workers=args.num_workers, img_resolution=args.img_resolution, crop_resolution=args.crop_resolution)               
     elif args.dataset == 'FasImage':
         dataset_creator = Dataset_Creator_FasImage(dataset_path=args.dataset_path, batch_size=args.evalbatchsize, num_workers=args.num_workers, img_resolution=args.img_resolution, crop_resolution=args.crop_resolution)
     elif args.dataset == 'Chameleon':
@@ -210,6 +208,8 @@ def main(args):
 
     best_ap = 0
     best_acc = 0
+    best_auc = 0
+    best_hter = 1e9
     for epoch in range(args.start_epoch, args.epoch):
         epoch_start_time = time.time()
         if args.distributed:
@@ -240,9 +240,9 @@ def main(args):
         print('Epoch training time {}'.format(epoch_time_str))
         
         if args.ema:
-            output_strs, cur_ap, cur_acc = evaluate(model_ema.module, data_loader_vals, device, args=args)
+            output_strs, cur_ap, cur_acc, cur_auc, cur_hter = evaluate(model_ema.module, data_loader_vals, device, args=args)
         else:
-            output_strs, cur_ap, cur_acc = evaluate(model, data_loader_vals, device, args=args)
+            output_strs, cur_ap, cur_acc, cur_auc, cur_hter = evaluate(model, data_loader_vals, device, args=args)
 
 
         if args.output_dir and is_main_process():
@@ -266,6 +266,34 @@ def main(args):
             if cur_acc > best_acc:
                 best_acc = cur_acc
                 checkpoint_path = output_dir / f'checkpoint_best_acc.pth'
+                weights = {
+                    'model': model_without_ddp.state_dict(),
+                    'optimizer': optimizer.state_dict(),
+                    'epoch': epoch,
+                    'lr_scheduler': lr_scheduler.state_dict(),
+                    'args': args,
+                }
+                if model_ema:
+                    weights['model_ema'] = get_state_dict(model_ema)
+                save_on_master(weights, checkpoint_path)
+
+            if cur_auc > best_auc:
+                best_auc = cur_auc
+                checkpoint_path = output_dir / f'checkpoint_best_auc.pth'
+                weights = {
+                    'model': model_without_ddp.state_dict(),
+                    'optimizer': optimizer.state_dict(),
+                    'epoch': epoch,
+                    'lr_scheduler': lr_scheduler.state_dict(),
+                    'args': args,
+                }
+                if model_ema:
+                    weights['model_ema'] = get_state_dict(model_ema)
+                save_on_master(weights, checkpoint_path)
+
+            if cur_hter < best_hter:
+                best_hter = cur_hter
+                checkpoint_path = output_dir / f'checkpoint_best_hter.pth'
                 weights = {
                     'model': model_without_ddp.state_dict(),
                     'optimizer': optimizer.state_dict(),

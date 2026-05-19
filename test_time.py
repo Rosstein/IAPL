@@ -17,10 +17,10 @@ import torch.utils.data.distributed
 import torchvision.transforms as transforms
 from models import build_model
 from torch.utils.data import DataLoader, DistributedSampler, RandomSampler, SequentialSampler
-from utils.dataset import Dataset_Creator, Dataset_Creator_GenImage, Dataset_Creator_Chameleon, Dataset_Creator_Chameleon_SD
+from utils.dataset import Dataset_Creator, Dataset_Creator_FasImage, Dataset_Creator_Chameleon, Dataset_Creator_Chameleon_SD
 import utils.misc as utils
 from augmix import AugMixAugmenter
-from sklearn.metrics import average_precision_score, accuracy_score
+from sklearn.metrics import average_precision_score, accuracy_score, roc_auc_score
 import random
 import matplotlib.pyplot as plt
 import os
@@ -43,11 +43,11 @@ def testtime_main(args):
     torch.backends.cudnn.benchmark = True
 
     # infer dataset construction
-    assert args.dataset in ['UniversalFakeDetect', 'GenImage', 'Chameleon', 'Chameleon_SD']
+    assert args.dataset in ['UniversalFakeDetect', 'FasImage', 'Chameleon', 'Chameleon_SD']
     if args.dataset == 'UniversalFakeDetect':
         dataset_creator = Dataset_Creator(dataset_path=args.dataset_path, batch_size=args.evalbatchsize, num_workers=args.num_workers, img_resolution=args.img_resolution, crop_resolution=args.crop_resolution)
-    elif args.dataset == 'GenImage':
-        dataset_creator = Dataset_Creator_GenImage(dataset_path=args.dataset_path, batch_size=args.evalbatchsize, num_workers=args.num_workers, img_resolution=args.img_resolution, crop_resolution=args.crop_resolution)               
+    elif args.dataset == 'FasImage':
+        dataset_creator = Dataset_Creator_FasImage(dataset_path=args.dataset_path, batch_size=args.evalbatchsize, num_workers=args.num_workers, img_resolution=args.img_resolution, crop_resolution=args.crop_resolution)               
     elif args.dataset == 'Chameleon':
         dataset_creator = Dataset_Creator_Chameleon(dataset_path=args.dataset_path, batch_size=args.evalbatchsize, num_workers=args.num_workers, img_resolution=args.img_resolution, crop_resolution=args.crop_resolution)
     elif args.dataset == 'Chameleon_SD':
@@ -89,6 +89,8 @@ def testtime_main(args):
     test_ACC = []
     test_real_ACC = []
     test_fake_ACC = []
+    test_auc = []
+    test_hter = []
 
     for data_name, data_loader in data_loader_vals.items():
 
@@ -154,21 +156,40 @@ def testtime_main(args):
         acc = accuracy_score(y_true, y_pred > 0.5)
         ap = average_precision_score(y_true, y_pred)
         
+        auc = roc_auc_score(y_true, y_pred)
+        thr = 0.5
+        # label=1 -> fake, label=0 -> live
+        # FAR: fake accepted as live; FRR: live rejected as fake
+        far = np.mean(y_pred[y_true == 1] < thr)
+        frr = np.mean(y_pred[y_true == 0] >= thr)
+        hter = (far + frr) / 2
+
         test_dataset.append(data_name)
         test_AP.append(ap)
         test_ACC.append(acc)
         test_real_ACC.append(r_acc)
         test_fake_ACC.append(f_acc)
+        test_auc.append(auc)
+        test_hter.append(hter)
 
-        print("({}) acc: {:.2f}; ap: {:.2f}; racc: {:.2f}; facc: {:.2f};".format(data_name, acc*100, ap*100, r_acc*100, f_acc*100))
+        print("({}) acc: {:.2f}; auc: {:.2f}; hter: {:.2f};".format(data_name, acc * 100, auc * 100, hter * 100))
 
     output_strs = []
-    for idx, [name, ap, acc, racc, facc] in enumerate(zip(test_dataset + ["mean"], test_AP + [np.mean(test_AP)], test_ACC + [np.mean(test_ACC)], test_real_ACC + [np.mean(test_real_ACC)], test_fake_ACC + [np.mean(test_fake_ACC)])):
-        output_str = "({} {:10}) acc: {:.2f}; ap: {:.2f}; racc: {:.2f}; facc: {:.2f};".format(idx, name, acc*100, ap*100, racc*100, facc*100)
+    for idx, [name, acc, auc, hter] in enumerate(
+        zip(
+            test_dataset + ["mean"],
+            test_ACC + [np.mean(test_ACC)],
+            test_auc + [np.mean(test_auc)],
+            test_hter + [np.mean(test_hter)],
+        )
+    ):
+        output_str = "({} {:10}) acc: {:.2f}; auc: {:.2f}; hter: {:.2f};".format(
+            idx, name, acc * 100, auc * 100, hter * 100
+        )
         output_strs.append(output_str)
         print(output_str)
     
-    return "; ".join(output_strs), np.mean(test_AP), np.mean(test_ACC)
+    return "; ".join(output_strs), np.mean(test_AP), np.mean(test_ACC), np.mean(test_auc), np.mean(test_hter)
 
 
 
