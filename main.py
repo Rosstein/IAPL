@@ -248,8 +248,10 @@ def main(args):
 
 
         if args.output_dir and is_main_process():
+            # with (output_dir / "log.txt").open("a") as f:
+            #     f.write(f"Epoch {epoch}:" + output_strs + "\n")
             with (output_dir / "log.txt").open("a") as f:
-                f.write(f"Epoch {epoch}:" + output_strs + "\n")
+                f.write(f"Epoch {epoch}:" + output_strs + f"; global_eer_thr: {cur_global_eer_thr:.6f}\n")
 
             if cur_ap > best_ap:
                 best_ap = cur_ap
