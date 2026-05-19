@@ -94,6 +94,8 @@ def evaluate(model, data_loaders, device, args=None, test=False):
     test_auc = []
     test_hter = []
     test_eer_thr = []
+    global_y_true = []
+    global_y_pred = []
 
     for data_name, data_loader in data_loaders.items():
         metric_logger = utils.MetricLogger(delimiter="  ")
@@ -128,6 +130,8 @@ def evaluate(model, data_loaders, device, args=None, test=False):
                 merge_y_pred.extend(data)
         
         y_true, y_pred = np.array(merge_y_true), np.array(merge_y_pred)
+        global_y_true.extend(y_true.tolist())
+        global_y_pred.extend(y_pred.tolist())
 
         # r_acc = accuracy_score(y_true[y_true==0], y_pred[y_true==0] > 0.5)
         # f_acc = accuracy_score(y_true[y_true==1], y_pred[y_true==1] > 0.5)
@@ -175,6 +179,14 @@ def evaluate(model, data_loaders, device, args=None, test=False):
         print("({}) acc: {:.2f}; auc: {:.2f}; hter: {:.2f}; eer_thr: {:.4f};".format(
             data_name, acc * 100, auc * 100, hter * 100, eer_thr))
 
+    # === Global EER threshold (all validation samples) ===
+    global_y_true = np.array(global_y_true)
+    global_y_pred = np.array(global_y_pred)
+    global_fpr, global_tpr, global_thresholds = roc_curve(global_y_true, global_y_pred)
+    global_fnr = 1 - global_tpr
+    global_eer_idx = np.nanargmin(np.abs(global_fpr - global_fnr))
+    global_eer_thr = global_thresholds[global_eer_idx]
+
     output_strs = []
     for idx, [name, acc, auc, hter, eer_thr] in enumerate(
         zip(
@@ -191,4 +203,4 @@ def evaluate(model, data_loaders, device, args=None, test=False):
         output_strs.append(output_str)
         print(output_str)
     
-    return "; ".join(output_strs), np.mean(test_AP), np.mean(test_ACC), np.mean(test_auc), np.mean(test_hter)
+    return "; ".join(output_strs), np.mean(test_AP), np.mean(test_ACC), np.mean(test_auc), np.mean(test_hter), global_eer_thr
