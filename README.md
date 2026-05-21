@@ -51,7 +51,7 @@ Datasets
               ├── 0_real
               ├── 1_fake
 
-    └── test					
+    └── test     
           ├── ADM
               ├── 0_real
               ├── 1_fake
@@ -75,32 +75,6 @@ Testing on Chameleon:
 sh tta_chameleon.sh
 ```
 
-Results:
-| Benchmark |  mACC(%)  |  mAP(%)   | 
-| :-------- | :---: | :---: |
-| UniversalFakeDetect   | 95.61  | 99.32  |
-| Chameleon | 60.70  | 50.43  |
-
-## Experiments on SD v1.4
-
-Training:
-```
-sh run_genimage.sh
-```
-Testing on GenImage:
-```
-sh tta_genimage.sh
-```
-Testing on Chameleon:
-```
-sh tta_chameleon_sdv1.4.sh
-```
-
-Results:
-| Benchmark |  mACC(%)  |  mAP(%)   | 
-| :-------- | :---: | :---: |
-| GenImage | 96.7  | 99.5  |
-| Chameleon | 75.09  | 64.69  |
 
 ## Pre-trained Models
 
@@ -112,7 +86,43 @@ We sincerely thank the following repos: [UniversalFakeDetect](https://github.com
 
 
 ## 🚀 Modifications & Fixes (for Single-GPU / V100)
+
 - **Distributed Training Bypass**: Added single-GPU fallback path to prevent NCCL/barrier crashes, removing uninitialized distributed APIs, `no_sync()`, and `.module` wrappers in `test_time.py`.
 - **V100 Precision Compatibility**: Added automatic fallback from `bf16` to `fp16` in `test_time.py` (since V100 Volta architecture does not support bfloat16 natively).
 - **Dynamic Weight Paths**: Fixed CLIP weight loading to strictly follow `args.clip_path` dynamically in `clip_models.py`.
 - **Dataset Pathing**: Standardized GenImage dataset paths to `Datasets/GenImage` in `tta_genimage.sh`.
+
+## 模型框架
+
+# Training Process
+
+基座模型是 CLIP 视觉编码器（ViT-L/14），在 models/clip_models.py 的 CLIPModel 构造里加载。核心流程：
+
+- 在 main.py 中，训练时会调用 build_model(args)（models/\_\_init\_\_.py），返回 CLIPModel(args)。
+- CLIPModel 内部调用 load_clip_to_cpu(...) 加载 CLIP 视觉编码器（clip_model.visual），作为 self.image_encoder。
+- 输入图像经过 image_encoder 提取视觉特征，再送入后续适配层/判别头。
+- 在 models/clip_models.py 中看到：
+  - self.image_encoder = clip_model.visual（基座视觉模型）
+  - self.fc_binary = nn.Linear(768, 1)（最终二分类头）
+
+在 CLIPModel.\_\_init\_\_ 里明确冻结/解冻参数：
+
+训练时更新的参数：运行时看到的可训练参数名单，会由 print(trained_clip) 输出
+
+- CLIP 中 adapter / gamma 相关参数
+- Prompt learner（可学习提示）
+- 二分类头 fc_binary
+
+prompt 结构：shared_ctx + bias(image)
+
+- shared_ctx = ctx[n_ctx, vision_width]是每个图片共享的prompt
+- bias(image)= conditional_ctx(image) 是一个“条件调制器”，它会根据当前图像生成 bias
+- deep_compound_prompts_vision: 插入到 Transformer 的不同层里。
+
+
+# Test-time
+
+image_encoder 全冻结, prompt_learner 里只有名字包含 ctx 的参数保留可训练. 
+fc_binary 冻结, conditional_ctx 冻结.  
+
+- TTA 只更新ctx[n_ctx, vision_width], 随着image features更新。

@@ -15,10 +15,10 @@ if [ "$NPROC_PER_NODE" -le 1 ]; then
         --evalbatchsize 32 \
         --clip_path "${CLIP_PATH}" \
         --dataset_path "/share/rongss/test_time/IAPL/Datasets/FasImage" \
-        --train_selected_subsets 'OULU_NPU' \
-        --test_selected_subsets 'MSU_MFSD' 'CASIA_FASD' 'ReplayAttack' \
+        --train_selected_subsets 'OULU_NPU' 'CASIA_FASD' 'ReplayAttack' \
+        --test_selected_subsets 'OULU_NPU' 'CASIA_FASD' 'ReplayAttack' \
         --lr 0.00005 \
-        --model_name fas_oulo \
+        --model_name fas_oci \
         --dataset FasImage \
         --epoch 5 \
         --lr_drop 10 \
@@ -34,10 +34,10 @@ else
         --evalbatchsize 32 \
         --clip_path "${CLIP_PATH}" \
         --dataset_path "/share/rongss/test_time/IAPL/Datasets/FasImage" \
-        --train_selected_subsets 'OULU_NPU' \
-        --test_selected_subsets 'MSU_MFSD' 'CASIA_FASD' 'ReplayAttack' \
+        --train_selected_subsets 'OULU_NPU' 'CASIA_FASD' 'ReplayAttack' \
+        --test_selected_subsets 'OULU_NPU' 'CASIA_FASD' 'ReplayAttack' \
         --lr 0.00005 \
-        --model_name fas_oulo \
+        --model_name fas_oci \
         --dataset FasImage \
         --epoch 5 \
         --lr_drop 10 \

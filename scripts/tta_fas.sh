@@ -1,8 +1,8 @@
 # 导入动态链接库 (解决可能会报的 libstdc++.so 找不到等问题)
 export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
 
-NPROC_PER_NODE=2
-DEVICES="0,1"
+NPROC_PER_NODE=1
+DEVICES="0"
 CLIP_PATH="/share/rongss/test_time/IAPL/models/clip/ViT-L-14.pt"
 
 # 1. 禁用 P2P (Peer-to-Peer) 通信。V100/容器环境下最容易引发段错误的原因。
@@ -20,8 +20,8 @@ if [ "$NPROC_PER_NODE" -le 1 ]; then
         --evalbatchsize 32 \
         --clip_path "${CLIP_PATH}" \
         --dataset_path "/share/rongss/test_time/IAPL/Datasets/FasImage" \
-        --train_selected_subsets 'OULU_NPU' \
-        --test_selected_subsets 'MSU_MFSD' 'CASIA_FASD' 'ReplayAttack'\
+        --train_selected_subsets 'OULU_NPU' 'CASIA_FASD' 'ReplayAttack' \
+        --test_selected_subsets 'MSU_MFSD' \
         --lr 0.005 \
         --model_name tta\
         --dataset FasImage \
@@ -29,7 +29,7 @@ if [ "$NPROC_PER_NODE" -le 1 ]; then
         --lr_drop 10 \
         --gate True \
         --condition True \
-        --pretrained_model /share/rongss/test_time/IAPL/results/fas_oulo/checkpoint_best_hter.pth \
+        --pretrained_model /share/rongss/test_time/IAPL/results/fas_oci/checkpoint_best_hter.pth \
         --eval \
         --smooth True\
         --tta True \
@@ -45,8 +45,8 @@ else
     --evalbatchsize 32 \
     --clip_path "${CLIP_PATH}" \
     --dataset_path "/share/rongss/test_time/IAPL/Datasets/FasImage" \
-    --train_selected_subsets 'OULU_NPU' \
-    --test_selected_subsets 'MSU_MFSD' 'CASIA_FASD' 'ReplayAttack'\
+    --train_selected_subsets 'OULU_NPU' 'CASIA_FASD' 'ReplayAttack' \
+    --test_selected_subsets 'MSU_MFSD' \
     --lr 0.005 \
     --model_name tta\
     --dataset FasImage \
@@ -54,7 +54,7 @@ else
     --lr_drop 10 \
     --gate True \
     --condition True \
-    --pretrained_model /share/rongss/test_time/IAPL/results/fas_oulo/checkpoint_best_hter.pth \
+    --pretrained_model /share/rongss/test_time/IAPL/results/fas_oci/checkpoint_best_hter.pth \
     --eval \
     --smooth True\
     --tta True \

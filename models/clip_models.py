@@ -75,15 +75,17 @@ class MultiModalPromptLearner(nn.Module):
         vision_width = cfg['VISION_WIDTH']
         # Default is 1, which is compound shallow prompting
         self.compound_prompts_depth = cfg['PROMPT_DEPTH']  # max=12, but will create 11 such shared prompts
-        
+        # ctx will be updated by the image features, 
+        # and the compound prompts will be updated by the deeper vision features. 
         if self.compound_prompts_depth == 0:
             self.ctx = None
             self.compound_prompts_vision = []
             
         else:
-            self.ctx = nn.Parameter(torch.empty(n_ctx, vision_width))
+            self.ctx = nn.Parameter(torch.empty(n_ctx, vision_width)) # ctx is a matrix of size (n_ctx, vision_width), which is the shared prompt for both vision and language. It will be updated by the image features.
             nn.init.normal_(self.ctx, std=0.02)
-
+            # nn.Parameter(...) will automatically register the parameter to the module, 
+            # and add it to the list of parameters to optimize.
             self.compound_prompts_vision = nn.ParameterList([nn.Parameter(torch.empty(n_ctx, vision_width))
                                                         for _ in range(self.compound_prompts_depth - 1)])
             for single_para in self.compound_prompts_vision:
@@ -200,7 +202,7 @@ class CLIPModel(nn.Module):
     def forward(self, image):
 
         image_vp = image.type(self.dtype)
-
+        #
         shared_ctx, deep_compound_prompts_vision = self.prompt_learner()
         
         if self.conditional_ctx is not None:
