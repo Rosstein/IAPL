@@ -14,8 +14,36 @@ import numpy as np
 import matplotlib.pyplot as plt
 from torchvision import transforms
 from .dct import DCT_Condition_Module
+from .dgpdl_condition import DGPDL_Condition_Module
 
 _tokenizer = _Tokenizer()
+
+
+def infer_visual_feature_dim(visual_encoder, fallback_dim=None):
+    for attr_name in ("output_dim", "embed_dim"):
+        value = getattr(visual_encoder, attr_name, None)
+        if isinstance(value, int):
+            return value
+
+    proj = getattr(visual_encoder, "proj", None)
+    if proj is not None:
+        shape = getattr(proj, "shape", None)
+        if shape is not None and len(shape) > 0:
+            return shape[-1]
+        out_features = getattr(proj, "out_features", None)
+        if isinstance(out_features, int):
+            return out_features
+
+    attnpool = getattr(visual_encoder, "attnpool", None)
+    c_proj = getattr(attnpool, "c_proj", None) if attnpool is not None else None
+    out_features = getattr(c_proj, "out_features", None)
+    if isinstance(out_features, int):
+        return out_features
+
+    if fallback_dim is not None:
+        return fallback_dim
+
+    raise ValueError("Unable to infer CLIP visual feature dimension. Please set --feature_dim explicitly.")
        
 def load_clip_to_cpu(model_path, n_ctx, adapter_list_vit, adapter_list_text, prompt_depth, gate):
 
@@ -119,15 +147,24 @@ class CLIPModel(nn.Module):
 
         # learnable prompts
         self.prompt_learner = MultiModalPromptLearner(cfg, clip_model)
-        self.fc_binary = nn.Linear(768, 1)
 
         # freezen CLIP
         self.image_encoder = clip_model.visual
         self.dtype = clip_model.dtype
+        self.feature_dim = infer_visual_feature_dim(self.image_encoder, args.feature_dim)
+        self.fc_binary = nn.Linear(self.feature_dim, 1)
 
         # do conditional ctx
         if args.condition:
-            self.conditional_ctx = DCT_Condition_Module()
+            if args.cond_type == "dgpdl":
+                self.conditional_ctx = DGPDL_Condition_Module(
+                    n_ctx=args.n_ctx,
+                    vision_width=args.vision_width,
+                    cond_dim=args.cond_dim,
+                    scale_init=args.cond_scale_init,
+                )
+            else:
+                self.conditional_ctx = DCT_Condition_Module()
         else:
             self.conditional_ctx = None
             
@@ -233,8 +270,9 @@ class CLIPModel(nn.Module):
                 param.requires_grad = False
         for param_name, param in self.fc_binary.named_parameters():
             param.requires_grad = False
-        for param_name, param in self.conditional_ctx.named_parameters():
-            param.requires_grad = False
+        if self.conditional_ctx is not None:
+            for param_name, param in self.conditional_ctx.named_parameters():
+                param.requires_grad = False
         print('-----------freezen TTA mode-----------')
         
 def _get_clones(module, N):

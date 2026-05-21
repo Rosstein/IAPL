@@ -4,6 +4,7 @@ export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
 NPROC_PER_NODE=1
 DEVICES="0"
 CLIP_PATH="/share/rongss/test_time/IAPL/models/clip/ViT-L-14.pt"
+COND_TYPE="${COND_TYPE:-dct}"
 
 # Disable P2P and InfiniBand to avoid NCCL issues in some container/V100 setups.
 export NCCL_P2P_DISABLE=1
@@ -24,6 +25,7 @@ if [ "$NPROC_PER_NODE" -le 1 ]; then
         --lr_drop 10 \
         --gate True \
         --condition True \
+        --cond_type "${COND_TYPE}" \
         --smooth True
 else
     CUDA_VISIBLE_DEVICES=${DEVICES} torchrun \
@@ -43,5 +45,6 @@ else
         --lr_drop 10 \
         --gate True \
         --condition True \
+        --cond_type "${COND_TYPE}" \
         --smooth True
 fi

@@ -63,6 +63,10 @@ def get_args_parser():
     parser.add_argument('--ctx_init', type=str, default="a photo of a")
     parser.add_argument('--progress_alpha', type=float, default=0.1)
     parser.add_argument('--condition', type=bool, default=False)
+    parser.add_argument('--cond_type', type=str, default='dct', choices=['dct', 'dgpdl'])
+    parser.add_argument('--cond_dim', type=int, default=512)
+    parser.add_argument('--cond_scale_init', type=float, default=1e-6)
+    parser.add_argument('--feature_dim', type=int, default=None)
     parser.add_argument('--gate', type=bool, default=False)
 
     # tta
