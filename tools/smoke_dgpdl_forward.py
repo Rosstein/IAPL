@@ -14,9 +14,10 @@ import models.clip_models as clip_models
 
 
 class FakeVisualEncoder(nn.Module):
-    def __init__(self, feature_dim):
+    def __init__(self, feature_dim, input_resolution=224):
         super().__init__()
         self.output_dim = feature_dim
+        self.input_resolution = input_resolution
 
     def forward(self, image, shared_ctx, compound_deeper_prompts):
         pooled = image.mean(dim=(2, 3))
