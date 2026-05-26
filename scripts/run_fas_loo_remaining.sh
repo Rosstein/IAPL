@@ -2,11 +2,14 @@
 set -euo pipefail
 
 # Run remaining OCIM leave-one-out experiments in parallel.
-# Completed already: OCI -> M
+# Completed already:
+#   OCI -> M
 # Remaining here:
 #   CIM -> O
 #   OIM -> C
 #   OCM -> I
+
+export RUN_CONFIG_TEXT="$(cat "$0")"
 
 export LD_LIBRARY_PATH="${CONDA_PREFIX:-}/lib:${LD_LIBRARY_PATH:-}"
 export NCCL_P2P_DISABLE=1
@@ -63,12 +66,15 @@ run_one() {
         --lr_drop 10 \
         --gate True \
         --condition True \
+        --cond_type dgpdl \
         --smooth True \
         > "${train_log}" 2>&1
 
-    local ckpt="${RESULT_ROOT}/${train_model_name}/checkpoint_best_hter.pth"
-    if [[ ! -f "${ckpt}" ]]; then
-        echo "[ERROR] Missing checkpoint: ${ckpt}" >&2
+    local run_root="${RESULT_ROOT}/${train_model_name}"
+    local ckpt
+    ckpt="$(find "${run_root}" -type f -path "${run_root}/*/checkpoint_best_hter.pth" | sort | tail -n1)"
+    if [[ -z "${ckpt}" || ! -f "${ckpt}" ]]; then
+        echo "[ERROR] Missing checkpoint under: ${run_root}" >&2
         return 1
     fi
 
@@ -86,6 +92,7 @@ run_one() {
         --lr_drop 10 \
         --gate True \
         --condition True \
+        --cond_type dgpdl \
         --pretrained_model "${ckpt}" \
         --eval \
         --smooth True \
@@ -109,8 +116,11 @@ pid2=$!
 run_one 2 ReplayAttack I OULU_NPU CASIA_FASD MSU_MFSD &
 pid3=$!
 
+run_one 3 MSU_MFSD M OULU_NPU CASIA_FASD ReplayAttack &
+pid4=$!
+
 fails=0
-for p in "${pid1}" "${pid2}" "${pid3}"; do
+for p in "${pid1}" "${pid2}" "${pid3}" "${pid4}"; do
     if ! wait "${p}"; then
         fails=$((fails + 1))
     fi

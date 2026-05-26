@@ -1,10 +1,11 @@
 # Load shared libs from the active conda env if present.
 export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
+export RUN_CONFIG_TEXT="$(cat "$0")"
 
 NPROC_PER_NODE=1
 DEVICES="0"
 CLIP_PATH="/share/rongss/test_time/IAPL/models/clip/ViT-L-14.pt"
-COND_TYPE="${COND_TYPE:-dct}"
+#COND_TYPE="${COND_TYPE:-dct}"
 
 # Disable P2P and InfiniBand to avoid NCCL issues in some container/V100 setups.
 export NCCL_P2P_DISABLE=1
@@ -25,7 +26,7 @@ if [ "$NPROC_PER_NODE" -le 1 ]; then
         --lr_drop 10 \
         --gate True \
         --condition True \
-        --cond_type "${COND_TYPE}" \
+        --cond_type dgpdl \
         --smooth True
 else
     CUDA_VISIBLE_DEVICES=${DEVICES} torchrun \

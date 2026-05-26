@@ -2,9 +2,9 @@
 export LD_LIBRARY_PATH="$CONDA_PREFIX/lib:$LD_LIBRARY_PATH"
 
 NPROC_PER_NODE=1
-DEVICES="0"
+DEVICES="1"
 CLIP_PATH="/share/rongss/test_time/IAPL/models/clip/ViT-L-14.pt"
-COND_TYPE="${COND_TYPE:-dct}"
+#COND_TYPE="${COND_TYPE:-dct}"
 
 # 1. 禁用 P2P (Peer-to-Peer) 通信。V100/容器环境下最容易引发段错误的原因。
 export NCCL_P2P_DISABLE=1
@@ -30,8 +30,8 @@ if [ "$NPROC_PER_NODE" -le 1 ]; then
         --lr_drop 10 \
         --gate True \
         --condition True \
-        --cond_type "${COND_TYPE}" \
-        --pretrained_model /share/rongss/test_time/IAPL/results/fas_oci/checkpoint_best_hter.pth \
+        --cond_type dgpdl \
+        --pretrained_model /share/rongss/test_time/IAPL/results/fas_oci/20260522-135552/checkpoint_best_hter.pth \
         --eval \
         --smooth True\
         --tta True \
@@ -57,7 +57,7 @@ else
     --gate True \
     --condition True \
     --cond_type "${COND_TYPE}" \
-    --pretrained_model /share/rongss/test_time/IAPL/results/fas_oci/checkpoint_best_hter.pth \
+    --pretrained_model /share/rongss/test_time/IAPL/results/fas_oci/20260521-113212/checkpoint_best_hter.pth \
     --eval \
     --smooth True\
     --tta True \
