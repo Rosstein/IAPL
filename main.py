@@ -2,6 +2,9 @@
 import os
 import datetime
 import time
+import json
+import shlex
+import sys
 import torch
 import random
 import numpy as np
@@ -63,6 +66,10 @@ def get_args_parser():
     parser.add_argument('--ctx_init', type=str, default="a photo of a")
     parser.add_argument('--progress_alpha', type=float, default=0.1)
     parser.add_argument('--condition', type=bool, default=False)
+    parser.add_argument('--cond_type', type=str, default='dct', choices=['dct', 'dgpdl'])
+    parser.add_argument('--cond_dim', type=int, default=512)
+    parser.add_argument('--cond_scale_init', type=float, default=1e-6)
+    parser.add_argument('--feature_dim', type=int, default=None)
     parser.add_argument('--gate', type=bool, default=False)
 
     # tta
@@ -97,6 +104,24 @@ def get_args_parser():
     parser.add_argument("--local-rank", type=int, help='local rank for DistributedDataParallel')
 
     return parser
+
+
+def _format_run_header(args):
+    run_config_text = os.environ.get('RUN_CONFIG_TEXT', '').strip()
+    header_lines = [
+        '=' * 80,
+        f'Start time: {datetime.datetime.now().isoformat(timespec="seconds")}',
+        f"Command: {' '.join(shlex.quote(part) for part in sys.argv)}",
+        'Args:',
+        json.dumps(vars(args), indent=2, sort_keys=True, default=str),
+    ]
+    if run_config_text:
+        header_lines.extend([
+            'Run script:',
+            run_config_text,
+        ])
+    header_lines.append('=' * 80)
+    return '\n'.join(header_lines) + '\n\n'
 
 def main(args):
     init_distributed_mode(args)
@@ -203,6 +228,8 @@ def main(args):
     # OUTPUT
     if args.output_dir:
         args.output_dir = os.path.join(args.output_dir, args.model_name)
+        timestamp = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
+        args.output_dir = os.path.join(args.output_dir, timestamp)
         os.makedirs(args.output_dir, exist_ok=True)
     output_dir = Path(args.output_dir)
 
@@ -248,9 +275,14 @@ def main(args):
 
 
         if args.output_dir and is_main_process():
+            log_path = output_dir / 'log.txt'
+            if not log_path.exists():
+                with log_path.open('w') as f:
+                    f.write(_format_run_header(args))
+
             # with (output_dir / "log.txt").open("a") as f:
             #     f.write(f"Epoch {epoch}:" + output_strs + "\n")
-            with (output_dir / "log.txt").open("a") as f:
+            with log_path.open("a") as f:
                 f.write(f"Epoch {epoch}:" + output_strs + f"; global_eer_thr: {cur_global_eer_thr:.6f}\n")
 
             if cur_ap > best_ap:

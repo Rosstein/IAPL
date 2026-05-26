@@ -75,6 +75,22 @@ Testing on Chameleon:
 sh tta_chameleon.sh
 ```
 
+## Conditional context options
+
+The default conditional prompt module remains the original DCT baseline:
+
+```
+python main.py ... --condition True --cond_type dct
+```
+
+To run the lightweight DGPDL-style baseline replacement with CLIP ViT-L/14 and `n_ctx=2`, use:
+
+```
+python main.py ... --condition True --cond_type dgpdl --n_ctx 2 --vision_width 1024
+```
+
+`--feature_dim` is optional. When omitted, the classifier input dimension is inferred from the CLIP visual encoder automatically.
+
 
 ## Pre-trained Models
 
